@@ -1,0 +1,63 @@
+// AGSL (Android Graphics Shading Language)
+
+// --- Uniforms que pasaremos desde Kotlin ---
+uniform float u_time;
+uniform vec2 u_resolution;
+
+// --- Implementación manual de tanh(x) ---
+float tanh_impl(float x) {
+    float ex = exp(x);
+    float emx = exp(-x);
+    return (ex - emx) / (ex + emx);
+}
+
+// --- La función principal ---
+vec4 main(vec2 fragCoord) {
+
+    // --- 1. Coordenadas UV 3D (Corregido) ---
+    // Mapea las coordenadas de [0, res] a [-1, 1]
+    vec2 uv = fragCoord.xy / u_resolution.xy; // [0, 1]
+        uv = uv * 2.0 - 1.0; // [-1, 1]
+        uv.x *= u_resolution.x / u_resolution.y; // Corrección de aspecto
+
+    // --- 2. Definir el Rayo ---
+    // Define el rayo 3D apuntando "hacia dentro" de la pantalla
+    vec3 rd = normalize(vec3(uv, 1.0)); // 1.0 = "zoom"
+
+    vec4 o = vec4(0.0);
+    float t = u_time * 0.008;
+    float z = 0.0; // z (profundidad) se acumula
+
+    // --- Loop principal ---
+    for(float i = 0.0; i < 10.0; i++)
+    {
+        // --- 3. Posición P en 3D ---
+        // p = posición 3D a lo largo del rayo
+        vec3 p = rd * z;
+        p.z += 9.0; // (Cámara/posición inicial del código original)
+
+        vec3 a = vec3(0.5);
+
+        float h = (p.x + p.y + p.z) - t;
+
+        a = mix(dot(a,p)*a, p, sin(h)) + cos(h)*cross(a,p);
+
+        // --- Loop interno ---
+        for(float d_inner = 0.0; d_inner < 9.0; d_inner++)
+        {
+            a += 0.3 * sin(a * d_inner).zxy;
+        }
+
+        float d = length(a.xz) / 15.0;
+        z += d;
+
+        o += vec4(9.0, 5.0, h+t, 1.0) / d;
+    }
+
+    // --- Arreglo del tanh ---
+    o.r = tanh_impl(o.r / 10000.0);
+    o.g = tanh_impl(o.g / 10000.0);
+    o.b = tanh_impl(o.b / 10000.0);
+
+    return o;
+}

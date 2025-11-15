@@ -1,0 +1,65 @@
+// AGSL (Android Graphics Shading Language)
+
+uniform float u_time;
+uniform vec2 u_resolution;
+
+// --- ¡TUS PARÁMETROS PARA TOQUETEAR! ---
+
+// -- Partículas --
+const float GRID_SIZE = 14.0;  // Zoom: (14.0 = ~196 partículas). Sube esto para MÁS.
+const float MIN_RADIUS = 0.01; // Radio mínimo (muy pequeño)
+const float MAX_RADIUS = 0.05; // Radio máximo (pequeño)
+
+// -- Movimiento --
+const float PULSE_SPEED = 0.2; // Velocidad a la que "palpitan" (cambian de tamaño)
+const float MOVE_SPEED = 0.1;  // Velocidad MÁXIMA de movimiento aleatorio
+
+// -- Color --
+const vec3 BG_COLOR = vec3(0.1); // Fondo gris oscuro
+const vec3 PARTICLE_COLOR = vec3(1.0); // Partículas blancas
+
+// --- FIN DE PARÁMETROS ---
+
+
+// Función simple para generar un número aleatorio (hash)
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+// --- La función principal ---
+vec4 main(vec2 fragCoord) {
+
+    // --- 1. Coordenadas y Parrilla ---
+    vec2 uv = fragCoord.xy / u_resolution.xy;
+    uv.x *= u_resolution.x / u_resolution.y; // Corrección de aspecto
+
+    vec2 uv_grid = uv * GRID_SIZE;
+    vec2 gv = fract(uv_grid); // Posición DENTRO de la celda (0 a 1)
+    vec2 id = floor(uv_grid); // ID de la celda
+
+    // --- 2. Aleatoriedad ---
+    float random_pulse = hash(id); // Aleatorio para el pulso
+    // Un vector de dirección aleatorio único para esta celda [de -1 a 1]
+    vec2 random_dir = vec2(hash(id + 1.2), hash(id + 3.4)) * 2.0 - 1.0;
+
+    // --- 3. Animación de Radio (Pulso) ---
+    float radius_phase = u_time * PULSE_SPEED + random_pulse * 6.28;
+    float radius = mix(MIN_RADIUS, MAX_RADIUS, (sin(radius_phase) + 1.0) / 2.0);
+
+    // --- 4. Animación de Posición (¡ALEATORIA!) ---
+    // Calculamos el centro de la celda (0.5)
+    // y le añadimos el movimiento aleatorio en el tiempo
+    // Usamos fract() para que "envuelva" (wrap) al salir de la celda
+    vec2 center = fract(vec2(0.5) + u_time * MOVE_SPEED * random_dir);
+
+    // --- 5. Dibujar la Partícula ---
+    // Medimos la distancia desde el píxel (gv) al centro móvil (center)
+    float dist = length(gv - center);
+    float particle = 1.0 - smoothstep(radius - 0.005, radius, dist);
+
+    // --- 6. Color Final (Simple) ---
+    // Mezcla el fondo gris con la partícula blanca
+    vec3 final_color = mix(BG_COLOR, PARTICLE_COLOR, particle);
+
+    return vec4(final_color, 1.0);
+}

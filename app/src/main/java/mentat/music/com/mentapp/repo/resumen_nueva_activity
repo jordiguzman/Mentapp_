@@ -1,0 +1,79 @@
+# Resumen Exhaustivo: Plan "Concepto" Nativo (WordPress + ACF)
+
+**Objetivo:** Reemplazar el `WebView` de "Concepto" por una pantalla 100% nativa, "Ambient" y *scrolleable* que se cargue dinámicamente desde una única página de WordPress. Esto despeja `HomeScreen` (como pediste) y nos da total libertad de diseño.
+
+---
+
+### FASE 1: Backend (WordPress) - (Tareas tuyas)
+
+El objetivo es hacer que WordPress nos dé un **JSON limpio** en lugar de HTML.
+
+1.  **Instalar Plugins (Requerido):**
+    * `Advanced Custom Fields (ACF)` (Gratuito).
+    * `ACF to REST API` (Gratuito).
+
+2.  **Crear el "Constructor de Bloques" en WordPress:**
+    * Dentro de ACF, crear un nuevo "Grupo de Campos" para la página "Concepto".
+    * Usar el tipo de campo **"Flexible Content" (Contenido Flexible)**.
+    * Definir los "Layouts" (bloques), que coincidirán 1 a 1 con nuestro JSON y nuestro `ConceptScreen.kt`:
+        * **Layout 1:** `bloque_titular` (Campo: `texto` [Texto]).
+        * **Layout 2:** `bloque_parrafo` (Campo: `texto_largo` [Área de Texto]).
+        * **Layout 3:** `bloque_imagen` (Campo: `imagen` [Imagen]).
+        * **Layout 4:** `bloque_sorpresa` (Campos: `titulo_link` [Texto], `url_link` [URL]).
+        * **Layout 5:** `bloque_embed` (Campo: `codigo_embed` [Área de Texto, para el `<iframe>`]).
+
+3.  **Escribir el Contenido:**
+    * Editar tu página "Concepto" en WordPress y añadir tu contenido ("Sobre mi", "Sorpresas", etc.) usando los nuevos bloques.
+    * Guardar la página.
+
+4.  **Conseguir la URL de la API:**
+    * Buscar la URL de la API REST para esa página específica.
+    * Tendrá un formato similar a: `https://www.mentat-music.com/wp-json/acf/v3/pages/ID_DE_LA_PAGINA`
+
+---
+
+### FASE 2: App (Kotlin) - (Tareas nuestras)
+
+El objetivo es "leer" ese JSON de ACF y "pintarlo" con nuestros Composables nativos.
+
+**1. Archivo: `HomeViewModel.kt` (El Cerebro)**
+
+* **Refactorizar el Estado:** `AppState` ya no será suficiente. El `ViewModel` gestionará dos estados de datos separados:
+    1.  `appState` (para `mentat_data_DEF.json` - carruseles).
+    2.  `conceptState` (¡Nuevo! Para manejar el `Loading`/`Success`/`Error` de "Concepto").
+* **Nuevas Data Classes:** Crear las `data class`es para "parsear" el JSON de ACF:
+    * `AcfResponse` (que contiene `acf: AcfData`)
+    * `AcfData` (que contiene `bloques_de_concepto: List<AcfBlock>`)
+    * `AcfBlock` (una `sealed interface` polimórfica que usa `acf_fc_layout` para saber si es `HeaderBlock`, `ParagraphBlock`, `EmbedBlock`, etc.)
+* **Nueva Función de Red:** Crear `fun fetchConceptData()`.
+    * Usará `Ktor` para llamar a la **URL de la API de ACF (Fase 1, Punto 4)**.
+    * Traducirá el JSON a `List<AcfBlock>`.
+    * Actualizará el `conceptState` a `Success` o `Error`.
+
+**2. Archivo: `ConceptScreen.kt` (El Actor - *Casi hecho*)**
+
+* **Añadir el "Embed":** Modificar el `when(block)` dentro de `LazyColumn`.
+* Añadir el caso: `is AcfBlock.EmbedBlock -> { ... }`.
+* Dentro, usar `AndroidView` para crear una `WebView` pequeña.
+* Configurarla (`settings.javaScriptEnabled = true`) y usar `loadData(block.codigo_embed, ...)` para renderizar el `<iframe>`.
+
+**3. Archivo: `HomeScreen.kt` (El Director - La Pieza Clave)**
+
+* **Modificar `onIconClick`:**
+    * El `if (clickedItemName in carruselItems)` se queda (para Spotify, GUZZ, etc.).
+    * **Añadir un `else if (clickedItemName == "Concepto")`:**
+        * NO llamará a `uriHandler`.
+        * Disparará la animación (`isAnimatingOut = true`, etc.).
+        * Llamará a la nueva función: `homeViewModel.fetchConceptData()`.
+    * El `else` (para "Social") seguirá usando `uriHandler.openUri(route)`.
+* **Modificar "Capa 5" (El "Box Padre"):**
+    * La lógica que dibuja el contenido se expandirá.
+    * Escuchará a **ambos** estados: `appState` (para carruseles) y `conceptState` (para concepto).
+    * `if (carouselData != null)` -> Muestra `AlbumCarousel`.
+    * `else if (conceptData != null)` -> Muestra `ConceptScreen`.
+    * `else if (appState == Loading || conceptState == Loading)` -> Muestra `CircularProgressIndicator`.
+* **Modificar "Box Padre" (El Layout Inteligente):**
+    * Implementar el "Modo Carrusel" vs. "Modo Concepto" que analizamos.
+    * El `carouselBoxModifier` comprobará `if (clickedItemName == "Concepto")`.
+    * Si es "Concepto", usará un modificador de pantalla completa (ej: `fillMaxWidth(0.95f).fillMaxHeight(0.9f)`).
+    * Si es un carrusel, usará el modificador cuadrado (`fillMaxWidth(0.9f).aspectRatio(1f)`).

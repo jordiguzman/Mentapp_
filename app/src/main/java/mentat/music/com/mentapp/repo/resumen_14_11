@@ -1,0 +1,185 @@
+Resumen Exhaustivo del Proyecto: Mentapp (v.Actual)
+
+(Basado en nuestro estado actual, tras arreglar las animaciones, el giro de pantalla y las sombras "a la brava").
+
+1. Propósito y Visión Artística (El "Porqué")
+
+Propósito:
+Crear una app nativa en Android (Kotlin/Jetpack Compose) para el proyecto musical "Mentat".
+
+Visión Artística (Director: Tú):
+El objetivo principal no es ser un simple "contenedor" de enlaces, sino una experiencia visual "impactante" y única. La app debe sentirse moderna, artística y "Ambient". Rechazamos los diseños de apps estándar (listas, cuadrículas) en favor de una interfaz 100% personalizada, fluida y "física" (con peso y rebotes).
+
+Conceptos de Diseño Clave (Conseguidos):
+
+Fondo Dinámico: Un fondo generativo (AttractorBackground.kt) que "muta" (Shader de Atractor de Clifford en la GPU) y se "congela" durante las transiciones.
+
+Navegación Táctil: Una interfaz de dial (CircularDialLayout.kt) con "snapping" (anclaje).
+
+Feedback Visual: El icono activo es más grande (76.dp), está a todo color y tiene una sombra "a la brava" (tu blur(24.dp)). Los iconos inactivos están "apagados" (desaturados con ColorFilter).
+
+Consistencia Estética: El "Donut" y el "Box Padre" del carrusel comparten un diseño de "cristal tintado" y un borde "metálico" (gradiente) para unificar la app.
+
+Jerarquía de Capas: La app funciona en dos "escenas" (Dial vs. Carrusel) con una transición de "fundido encadenado" (cross-fade) entre ellas.
+
+2. Stack Tecnológico (El "Cómo")
+
+Lenguaje: Kotlin
+
+UI: Jetpack Compose (100%, sin XML)
+
+API Mínima: API 31 (Android 12 "S") (Requerido por Modifier.blur para tu sombra "a la brava"). Nota: RuntimeShader (el fondo) requiere API 33 (Tiramisu), por lo que la app solo funcionará en dispositivos modernos.
+
+Navegación: Jetpack Navigation para Compose (androidx.navigation:navigation-compose).
+
+Estado (Asíncrono): StateFlow
+
+Estado (Supervivencia): ViewModel con SavedStateHandle.
+
+Red: Ktor (para peticiones de red).
+
+Parseo de Datos: kotlinx.serialization (para leer el JSON).
+
+Carga de Imágenes: Glide (con GlideImage para Compose).
+
+3. Estructura y Lógica (El "Cerebro")
+
+Hemos construido una arquitectura robusta de "Director" (HomeScreen) y "Actores" (Composables "tontos").
+
+Carpeta: ui/screens/home/viewmodel/
+
+HomeViewModel.kt (El "Cerebro" de la App):
+
+Propósito: Es la "Única Fuente de Verdad" (Single Source of Truth) para todo el estado que debe sobrevivir.
+
+Gestión de Red: Llama a tu mentat_data_DEF.json (usando Ktor) al iniciarse.
+
+Parseo de JSON (El "Galimatías"):
+
+Define la arquitectura de datos completa: AppData (la super-clase), CarouselItem (para discos/vídeos) y la sealed interface ConceptBlock (para "Concepto", usando polimorfismo).
+
+Sabe cómo "traducir" tu JSON (incluyendo campos opcionales como title? = null) a estos objetos.
+
+Gestión de Estado (Rotación):
+
+Usa SavedStateHandle.getStateFlow para guardar y exponer el estado de la UI (isAnimatingOut, clickedIconIndex, isExpansionFinished) y el estado del dial (rotationAngle). Esto es lo que arregla el bug de girar la pantalla.
+
+Expone appState: StateFlow<AppState> (Loading, Success, Error).
+
+Carpeta: ui/composables/
+
+AttractorBackground.kt (El "Escenario"):
+
+Composable reutilizable que solo se encarga de dibujar el Shader del atractor.
+
+Recibe isFrozen y frozenTime para poder ser controlado desde fuera (por HomeScreen).
+
+CircularDialLayout.kt (El "Dial"):
+
+Propósito: "Actor" experto que solo sabe dibujar el dial.
+
+Definiciones: Define la data class MenuItem (con brandColor) y la lista menuItems (con tus rutas de URL reales).
+
+Feedback Visual:
+
+Gestiona la animación de targetSize (48.dp -> 76.dp).
+
+Dibuja tu sombra "a la brava" (blur(24.dp), offset(6.dp), alpha(0.2f)) para todos los iconos.
+
+Comunicación: Pasa el booleano isActive al contentFor.
+
+Animación: Sus animaciones (animatedSize, containerAnimatedAlpha) están sincronizadas a TRANSITION_DURATION (600ms).
+
+AlbumCarousel.kt (El "Actor Carrusel"):
+
+Propósito: Renderiza tu diseño "SOLAR SYSTEM" (portada + texto debajo).
+
+UI: Usa un HorizontalPager que contiene AlbumCard.
+
+AlbumCard: Es un Column que coloca la GlideImage (cuadrada, con "glow") encima del Text (title a 16.sp, artist).
+
+Clic Inteligente: Gestiona la lógica de Intent "App-First" para appPackageName (Bandcamp, Soundcloud) y el try/catch.
+
+Arreglos: Arregla la pixelación (override(600)) y el "box fantasma".
+
+ConceptScreen.kt (El "Actor Concepto"):
+
+Propósito: Renderiza la lista de ConceptBlock de tu JSON.
+
+UI: Es un LazyColumn (lista scrolleable) que usa un when para dibujar Text (header, paragraph), GlideImage (image), o Box clicables (link/sorpresa).
+
+AnimationConstants.kt (El "Reloj"):
+
+Define la const val TRANSITION_DURATION = 600 para que todas las animaciones duren lo mismo.
+
+Carpeta: ui/screens/home/
+
+HomeScreen.kt (El "Director de Orquesta"):
+
+Propósito: El Composable "Dios" (¡pero controlado!) que une todo. No guarda estado (remember). Lee todo del HomeViewModel.
+
+Arquitectura de Capas:
+
+AttractorBackground() (El fondo).
+
+BoxWithConstraints (Para saber si es isPortrait).
+
+"Escena del Dial" (Box con alpha(dialSceneAlpha)):
+
+Text("MENTAPP") (con alineación responsiva).
+
+"Contenedor del Dial" (Box con scale(dialScale.value)): El que "rebota".
+
+Canvas (Donut volumétrico).
+
+Row (Flechas).
+
+CircularDialLayout (Los iconos).
+
+"Capa 5 / Escena del Carrusel" (BoxWithConstraints -> Box "Stack"):
+
+El "Box Padre" (cuadrado, responsivo, tintado con brandColor, con borde "dial").
+
+El "Icono Flotante" (responsivo, con tus 1.4f y 0.5f).
+
+El Contenido: Un when que decide qué mostrar: AlbumCarousel, ConceptScreen, CircularProgressIndicator (Loading) o Text (Error).
+
+Coreografía:
+
+onIconClick: Lógica "inteligente" que decide si es "Carrusel/Concepto" (hace animación isExpansionFinished) o "Link Simple" (usa uriHandler).
+
+BackHandler: Lógica de "Causa y Efecto". Espera 600ms (a que aterrice) y luego dispara el rebote (dialScale).
+
+LaunchedEffect: Dispara el rebote (dialScale) solo la primera vez (el "Rebote Inicial").
+
+contentFor: Define el Image del icono y le aplica el desaturationFilter (tu 0.5f) si isActive es false.
+
+4. Tareas Futuras (El "Roadmap")
+
+Ahora que el "bucle" está arreglado y la app es estable, podemos volver a tus ideas nocturnas.
+
+1. El Splash "Strobe" (¡ESTAMOS AQUÍ!):
+
+Tu Tarea: Darme el "OK".
+
+Mi Tarea (Paso A): Crear el archivo SplashScreen.kt (con la coreografía de "flashes" delay y AnimatedVisibility).
+
+Mi Tarea (Paso B): Modificar AppScreens.kt (añadir la ruta splash_screen).
+
+Mi Tarea (Paso C): Modificar AppNavigation.kt (cambiar startDestination a splash_screen y añadir el composable del Splash).
+
+(El "Rebote Inicial" que ya programamos en HomeScreen se disparará automáticamente después de esto).
+
+2. "Concepto" (El Backend - Tu Tarea):
+
+Cuando quieras, tu tarea es montar el backend de WordPress: Instalar ACF y ACF to REST API, crear los "Bloques Flexibles" (header, paragraph, image, link, embed) y escribir el post.
+
+3. "Concepto" (El Frontend - Nuestra Tarea):
+
+Cuando tengas el backend, modificaremos HomeViewModel para que fetchConceptData() llame a la nueva URL de la API de ACF.
+
+Modificaremos ConceptScreen.kt para que incluya el AndroidView (la WebView aislada) para tu bloque_embed (SoundCloud).
+
+4. Refinamiento del Rebote (Tu Tarea):
+
+"Toquetear" las 3 variables que te marqué en HomeScreen.kt (bounceDamping, bounceStiffness, bounceStartScale) hasta que el "¡Pum!" sea 100% como te gusta

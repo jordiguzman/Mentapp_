@@ -1,0 +1,71 @@
+// AGSL (Android Graphics Shading Language)
+
+uniform float u_time;
+uniform vec2 u_resolution;
+
+// --- ¡TUS PARÁMETROS PARA TOQUETEAR! ---
+
+// -- Apariencia --
+const float GRID_SIZE = 8.0;   // Zoom: Más grande = más círculos, más pequeños
+const float MIN_RADIUS = 0.05; // Radio mínimo del círculo (0.0 a 1.0)
+const float MAX_RADIUS = 0.45; // Radio máximo del círculo (0.0 a 1.0)
+
+// -- Movimiento --
+const float SPEED = 0.2;       // Velocidad general de la animación (baja es mejor)
+const float PHASE_SPEED = 0.5; // Velocidad a la que "parpadean" o cambian de fase
+
+// -- Color --
+// (Jugaremos con esto más tarde, de momento un color base)
+const vec3 COLOR_1 = vec3(0.1, 0.3, 0.8); // Azul
+const vec3 COLOR_2 = vec3(0.8, 0.2, 0.5); // Rosa/Morado
+
+// --- FIN DE PARÁMETROS ---
+
+
+// Función simple para generar un número aleatorio (hash)
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+// --- La función principal ---
+vec4 main(vec2 fragCoord) {
+
+    // --- 1. Coordenadas ---
+    vec2 uv = fragCoord.xy / u_resolution.xy;
+    uv.x *= u_resolution.x / u_resolution.y; // Corrección de aspecto
+
+    // --- 2. La Parrilla (Grid) ---
+    // Multiplicamos por el zoom para crear la parrilla
+    uv *= GRID_SIZE;
+
+    // Coordenada DENTRO de la celda (de 0 a 1)
+    vec2 gv = fract(uv);
+    // ID de la celda (número entero)
+    vec2 id = floor(uv);
+
+    // --- 3. Aleatoriedad ---
+    // Generamos un número aleatorio para esta celda (basado en su ID)
+    // Esto hace que cada círculo sea único
+    float random_val = hash(id);
+
+    // --- 4. Animación del Radio ---
+    // Usamos 'sin' para que el radio crezca y decrezca (palpite)
+    // Usamos 'random_val' para que cada círculo tenga una fase (tiempo) diferente
+    float phase = u_time * SPEED + random_val * 6.28; // 6.28 = 2*PI
+    float radius = mix(MIN_RADIUS, MAX_RADIUS, (sin(phase) + 1.0) / 2.0);
+
+    // --- 5. Dibujar el Círculo ---
+    // Distancia del píxel actual al centro de la celda (0.5)
+    float dist = length(gv - 0.5);
+    // Usamos 'smoothstep' para crear un borde suave (antialiasing)
+    float circle = 1.0 - smoothstep(radius - 0.01, radius, dist);
+
+    // --- 6. Color ---
+    // Mezclamos dos colores basándonos en otro aleatorio
+    float color_phase = u_time * PHASE_SPEED + hash(id + 0.5) * 6.28;
+    float color_mix = (sin(color_phase) + 1.0) / 2.0;
+    vec3 color = mix(COLOR_1, COLOR_2, color_mix);
+
+    // Color final = color * círculo (así el fondo es negro)
+    return vec4(color * circle, 1.0);
+}
