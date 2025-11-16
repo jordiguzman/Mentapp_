@@ -1,16 +1,17 @@
 package mentat.music.com.mentapp.ui.screens.home
 
+// (Imports de RuntimeShader y drawWithCache eliminados)
 import android.annotation.SuppressLint
-// import android.graphics.RuntimeShader // <-- ¡ELIMINADO!
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing // <-- ¡SE QUEDA! (Lo usa 'time')
-import androidx.compose.animation.core.RepeatMode // <-- ¡SE QUEDA! (Lo usa 'time')
-import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable // <-- ¡SE QUEDA! (Lo usa 'time')
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -46,19 +47,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-// import androidx.compose.ui.draw.drawWithCache // <-- ¡ELIMINADO!
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
-// import androidx.compose.ui.graphics.ShaderBrush // <-- ¡ELIMINADO!
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -68,7 +66,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -78,8 +75,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import mentat.music.com.mentapp.R
 import mentat.music.com.mentapp.ui.composables.AlbumCarousel
+import mentat.music.com.mentapp.ui.composables.AttractorBackground
 import mentat.music.com.mentapp.ui.composables.CircularDialLayout
-import mentat.music.com.mentapp.ui.composables.ConceptScreen
+// import mentat.music.com.mentapp.ui.composables.ConceptScreen // <-- ¡ELIMINADO!
 import mentat.music.com.mentapp.ui.composables.TRANSITION_DURATION
 import mentat.music.com.mentapp.ui.composables.VideoBackground
 import mentat.music.com.mentapp.ui.composables.angleStep
@@ -87,13 +85,14 @@ import mentat.music.com.mentapp.ui.composables.menuItems
 import mentat.music.com.mentapp.ui.composables.targetAngleRad
 import mentat.music.com.mentapp.ui.screens.home.viewmodel.AppData
 import mentat.music.com.mentapp.ui.screens.home.viewmodel.AppState
+// import mentat.music.com.mentapp.ui.screens.home.viewmodel.ConceptBlock // <-- ¡ELIMINADO!
 import mentat.music.com.mentapp.ui.screens.home.viewmodel.HomeViewModel
 import kotlin.math.atan2
 import kotlin.math.roundToInt
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.rememberInfiniteTransition
-import mentat.music.com.mentapp.ui.composables.AttractorBackground // <-- ¡AÑADIDO!
-import mentat.music.com.mentapp.ui.screens.home.viewmodel.ConceptBlock
+import android.app.Activity
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 // --- (Definición de la fuente - sin cambios) ---
 private val verdanaFontFamily = FontFamily(
@@ -122,7 +121,6 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var isDialIdle by remember { mutableStateOf(true) }
     var isFrozen by remember { mutableStateOf(false) }
-    // var frozenTime by remember { mutableStateOf(0f) } // <-- ¡MOVIMOS ESTO!
     val uriHandler = LocalUriHandler.current
     val dialScale = remember { Animatable(1.0f) }
 
@@ -147,6 +145,20 @@ fun HomeScreen(
             )
         }
     }
+    // --- CÓDIGO PARA MOSTRAR LAS BARRAS DEL SISTEMA ---
+    val view = LocalView.current
+    val window = (view.context as Activity).window
+
+    // Este LaunchedEffect se ejecuta una vez cuando HomeScreen aparece
+    LaunchedEffect(key1 = window) {
+        // 1. Le decimos a Windows que vuelva a dibujar "normal"
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        // 2. Pedimos al controlador que MUESTRE las barras
+        val controller = WindowCompat.getInsetsController(window, view)
+        controller.show(WindowInsetsCompat.Type.systemBars())
+    }
+    // ---------------------------------------------------
 
     // --- (Alfas - sin cambios) ---
     val dialSceneAlpha by animateFloatAsState(
@@ -159,7 +171,7 @@ fun HomeScreen(
         animationSpec = tween(300), label = "arrowsAlpha"
     )
     // ... (resto de lógica de donut - sin cambios) ...
-    val iconPathRadius = 160.dp
+    val iconPathRadius = 140.dp
     val donutPadding = 8.dp
     val donutThickness = 76.dp + (donutPadding * 2)
     val donutRadius = iconPathRadius
@@ -168,7 +180,6 @@ fun HomeScreen(
     val arrowsYOffset = iconPathRadius
 
     // --- (Lógica de 'time' - ¡SE QUEDA AQUÍ!) ---
-    // (Se usa en 'onIconClick' para capturar 'frozenTime', así que es seguro)
     val infiniteTransition = rememberInfiniteTransition(label = "shader time")
     val time by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -178,7 +189,6 @@ fun HomeScreen(
             repeatMode = RepeatMode.Reverse
         ), label = "time"
     )
-    // ¡'frozenTime' ahora es solo local para el BackHandler y onIconClick!
     var frozenTime by remember { mutableStateOf(0f) }
 
     // --- (Lógica de BackHandler - sin cambios) ---
@@ -214,28 +224,16 @@ fun HomeScreen(
         contentAlignment = Alignment.Center
     ) {
 
-        // ==========================================================
-        // --- ¡¡¡INICIO DEL CAMBIO DE COMPATIBILIDAD!!! ---
-        // ==========================================================
-
-        // --- (CAPA 1: EL FONDO - ¡LIMPIO!) ---
-
-        // Comprobamos la versión del SDK en tiempo de ejecución
+        // --- (CAPA 1: EL FONDO - Arreglado) ---
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // --- API 33+ (Android 13): Mostramos el Shader ---
-            // Llamamos al "Búnker" seguro
             AttractorBackground(
                 modifier = Modifier.fillMaxSize(),
-                isFrozen = isAnimatingOut || !isExpansionFinished,
-                frozenTime = frozenTime // 'frozenTime' se pasa aquí
+                isFrozen = isAnimatingOut || isExpansionFinished, // <-- ¡Arreglado!
+                frozenTime = frozenTime
             )
         } else {
-            // --- API < 33 (Android 12 o menos): Mostramos el Vídeo ---
             VideoBackground(modifier = Modifier.fillMaxSize())
         }
-        // ==========================================================
-        // --- ¡¡¡FIN DEL CAMBIO DE COMPATIBILIDAD!!! ---
-        // ==========================================================
 
 
         // --- (BoxWithConstraints - sin cambios) ---
@@ -386,8 +384,10 @@ fun HomeScreen(
                                 }
                             }
                         },
+
+                        // --- ¡¡¡INICIO DEL CÓDIGO RESTAURADO!!! ---
+                        // (Este es el código que te daba error)
                         contentFor = { item, isClickedIcon, isExpansionFinished, isActive ->
-                            // ... (toda tu lógica de contentFor - sin cambios) ...
                             val iconTargetAlpha = when {
                                 isClickedIcon && isAnimatingOut -> 0f
                                 else -> 1f
@@ -407,6 +407,8 @@ fun HomeScreen(
                                     .alpha(iconAnimatedAlpha)
                             )
                         }
+                        // --- ¡¡¡FIN DEL CÓDIGO RESTAURADO!!! ---
+
                     )
                 } // --- FIN DEL "Contenedor del Dial" (que rebota) ---
             } // --- FIN DE LA ESCENA DEL DIAL ---
@@ -414,7 +416,9 @@ fun HomeScreen(
 
             // --- (CAPA 5: EL CARRUSEL) ---
 
-            // ... (toda tu lógica de appState y datos del carrusel - sin cambios) ...
+            // --- ¡¡¡INICIO DE LA MODIFICACIÓN!!! ---
+
+            // 1. (Lógica de AppData - sin cambios)
             val appData: AppData? = remember(appState) {
                 when (val state = appState) {
                     is AppState.Success -> state.data
@@ -426,8 +430,12 @@ fun HomeScreen(
                 }
             }
             val clickedItemName = if (clickedIconIndex != -1) menuItems[clickedIconIndex].name else null
+
+            // 2. (¡LÓGICA DE DATOS MODIFICADA!)
+            //    Ahora 'conceptData' es 'conceptDataAsCarousel'
             var carouselData: List<mentat.music.com.mentapp.ui.screens.home.viewmodel.CarouselItem>? = null
-            var conceptData: List<ConceptBlock>? = null
+            var conceptDataAsCarousel: List<mentat.music.com.mentapp.ui.screens.home.viewmodel.CarouselItem>? = null // <-- ¡RENOMBRADO!
+
             if (appData != null && clickedItemName != null) {
                 when (clickedItemName) {
                     "GUZZ" -> carouselData = appData.GUZZ
@@ -442,14 +450,21 @@ fun HomeScreen(
                         }
                     }
                     "Concepto" -> {
-                        conceptData = appData.Concepto
+                        // ¡Ahora carga en la nueva variable!
+                        conceptDataAsCarousel = appData.Concepto
                     }
                 }
             }
+
+            // 3. (¡LÓGICA DE ALFA MODIFICADA!)
+            //    Ahora comprueba 'conceptDataAsCarousel'
             val carouselLayerTargetAlpha = when {
-                isExpansionFinished && (appState is AppState.Loading || carouselData != null || conceptData != null) -> 1f
+                isExpansionFinished && (appState is AppState.Loading || carouselData != null || conceptDataAsCarousel != null) -> 1f
                 else -> 0f
             }
+            // --- (FIN DE LA MODIFICACIÓN DE LÓGICA DE DATOS) ---
+
+
             val carouselLayerAnimatedAlpha by animateFloatAsState(
                 targetValue = carouselLayerTargetAlpha,
                 animationSpec = tween(durationMillis = TRANSITION_DURATION),
@@ -460,15 +475,36 @@ fun HomeScreen(
             } else {
                 Color.Transparent
             }
+            val isConceptMode = (clickedItemName == "Concepto")
+
             val carouselBoxModifier = if (isPortrait) {
-                Modifier
-                    .fillMaxWidth(0.9f)
-                    .aspectRatio(1f)
+                // Modo Retrato (Portrait)
+                if (isConceptMode) {
+                    // MODO CONCEPTO: Rectangular y alto
+                    Modifier
+                        .fillMaxWidth(0.9f)
+                        .fillMaxHeight(0.8f) // 80% del alto
+                } else {
+                    // MODO DISCO: Cuadrado (como antes)
+                    Modifier
+                        .fillMaxWidth(0.9f)
+                        .aspectRatio(1f)
+                }
             } else {
-                Modifier
-                    .fillMaxHeight(0.9f)
-                    .aspectRatio(1f)
+                // Modo Apaisado (Landscape)
+                if (isConceptMode) {
+                    // MODO CONCEPTO: Rectangular y ancho
+                    Modifier
+                        .fillMaxHeight(0.9f)
+                        .fillMaxWidth(0.7f) // 70% del ancho
+                } else {
+                    // MODO DISCO: Cuadrado (como antes)
+                    Modifier
+                        .fillMaxHeight(0.9f)
+                        .aspectRatio(1f)
+                }
             }
+// --- ¡¡¡FIN DE LA MODIFICACIÓN DE TAMAÑO!!! ---
 
             if (isExpansionFinished) {
                 Box(
@@ -478,7 +514,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
 
-                    // (HIJO 1: La Tarjeta "Box Padre")
+                    // (HIJO 1: La Tarjeta "Box Padre" - sin cambios)
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -502,18 +538,26 @@ fun HomeScreen(
                                 ),
                                 shape = RoundedCornerShape(32.dp)
                             )
-                        // --- ¡¡¡MODIFICACIÓN AQUÍ!!! ---
-                        // --- (No hemos añadido 'blur' así que no hace falta 'shadow' de fallback) ---
-                        // Este Box no tenía blur, así que no hay que tocarlo. ¡Perfecto!
                         ,
                         contentAlignment = Alignment.Center
                     ) {
-                        // (Lógica de Contenido - sin cambios)
-                        if (carouselData != null) {
-                            AlbumCarousel(items = carouselData)
-                        } else if (conceptData != null) {
-                            ConceptScreen(blocks = conceptData)
-                        } else if (appState is AppState.Loading) {
+                        // --- ¡¡¡INICIO DE LA MODIFICACIÓN DE CONTENIDO!!! ---
+
+                        // 1. Unimos las dos listas en una sola
+                        val itemsToShow = carouselData ?: conceptDataAsCarousel
+
+                        // 2. Comprobamos si hay algo que mostrar
+                        if (itemsToShow != null) {
+                            // ¡Llamamos SIEMPRE a AlbumCarousel!
+                            // Y le pasamos el navController
+                            AlbumCarousel(
+                                items = itemsToShow,
+                                navController = navController,
+                                isConceptMode = isConceptMode // <-- ¡LE PASAMOS LA BANDERA!
+                            )
+                        }
+                        // (¡HEMOS BORRADO 'else if (conceptData != null)')
+                        else if (appState is AppState.Loading) {
                             CircularProgressIndicator(
                                 color = Color.White.copy(alpha = 0.7f),
                                 strokeWidth = 3.dp,
@@ -527,6 +571,7 @@ fun HomeScreen(
                                 fontFamily = verdanaFontFamily
                             )
                         }
+                        // --- ¡¡¡FIN DE LA MODIFICACIÓN DE CONTENIDO!!! ---
                     }
 
                     // (HIJO 2: Icono Flotante - sin cambios)
@@ -534,10 +579,9 @@ fun HomeScreen(
                         Image(
                             painter = painterResource(id = menuItems[clickedIconIndex].iconResId),
                             contentDescription = "Context Icon",
-                            // ... (toda tu lógica de Icono Flotante - sin cambios) ...
                             modifier = Modifier
                                 .align(if (isPortrait) Alignment.TopCenter else Alignment.CenterStart)
-                                .fillMaxWidth(0.25f)
+                                .fillMaxWidth(0.15f)
                                 .aspectRatio(1f)
                                 .layout { measurable, constraints ->
                                     val placeable = measurable.measure(constraints)

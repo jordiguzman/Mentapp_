@@ -17,12 +17,17 @@ import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import android.view.ViewGroup
+import android.view.TextureView
+import androidx.media3.common.C // ¡Este es clave!
 
 /**
  * Un Composable que reproduce un vídeo en bucle desde res/raw.
  * Está diseñado para silenciar el vídeo y quitar todos los controles.
  * Este es el "fallback" para APIs < 33.
  */
+// (Imports: Asegúrate de tener TextureView y androidx.media3.common.C)
+// (La anotación @OptIn se queda donde estaba, encima de la función)
+
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoBackground(
@@ -30,48 +35,52 @@ fun VideoBackground(
 ) {
     val context = LocalContext.current
 
-    // 1. Recordamos el ExoPlayer
+    // 1. Creamos la "pantalla tonta" (TextureView)
+    //    Usamos 'remember' para que sobreviva a las recomposiciones.
+    val textureView = remember {
+        TextureView(context)
+    }
+
+    // 2. Creamos el "cerebro" (ExoPlayer)
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
-            // Construimos el MediaItem desde nuestro recurso en res/raw
+            // (La configuración del vídeo es la misma)
             val mediaItem = MediaItem.fromUri(
-                "android.resource://${context.packageName}/${R.raw.captura_animacion}".toUri()
+                Uri.parse("android.resource://${context.packageName}/${R.raw.captura_animacion}")
             )
             setMediaItem(mediaItem)
             prepare()
+            playWhenReady = true
+            repeatMode = Player.REPEAT_MODE_ONE
+            volume = 0f
 
-            // Configuración clave:
-            playWhenReady = true      // Empieza a sonar solo
-            repeatMode = Player.REPEAT_MODE_ONE // ¡Bucle infinito!
-            volume = 0f               // Lo silenciamos
+            // --- ¡¡¡LA NUEVA LÓGICA DE ESCALADO!!! ---
+            // Le decimos AL PLAYER (no a la vista) que haga ZOOM (Crop).
+            // Esta es la versión de "ExoPlayer" del RESIZE_MODE_ZOOM.
+            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         }
     }
 
-    // 2. Controlamos el ciclo de vida
+    // 3. Controlamos el Ciclo de Vida
     DisposableEffect(Unit) {
+        // Cuando el Composable APARECE, conectamos el "cerebro" a la "pantalla"
+        exoPlayer.setVideoTextureView(textureView)
+
         onDispose {
-            // Cuando el Composable desaparece, liberamos el reproductor
+            // Cuando el Composable DESAPARECE, los desconectamos y liberamos
+            exoPlayer.clearVideoTextureView(textureView)
             exoPlayer.release()
         }
     }
 
-    // 3. Usamos AndroidView para mostrar el PlayerView
+    // 4. Mostramos la "pantalla" (TextureView) en Compose
     AndroidView(
         factory = {
-            PlayerView(it).apply {
-                // --- ¡¡¡EL ARREGLO ESTÁ AQUÍ!!! ---
-
-                // 1. Preparamos el "escenario" (la vista)
-                useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                player = exoPlayer
-
-            }
+            // El factory ahora solo devuelve la "pantalla tonta"
+            // que ya hemos creado y recordado.
+            textureView
         },
-        modifier = modifier
+        modifier = modifier // <-- Este sigue siendo tu .fillMaxSize()
     )
 }
+

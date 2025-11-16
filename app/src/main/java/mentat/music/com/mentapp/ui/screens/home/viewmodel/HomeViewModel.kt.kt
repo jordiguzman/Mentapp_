@@ -10,16 +10,17 @@ import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.coroutines.async // ¡Importante para llamadas paralelas!
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerialName
+// import kotlinx.serialization.SerialName // Ya no se usa
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.modules.SerializersModule
-import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
+// import kotlinx.serialization.modules.SerializersModule // Ya no se usa
+// import kotlinx.serialization.modules.polymorphic // Ya no se usa
+// import kotlinx.serialization.modules.subclass // Ya no se usa
 
 // --- (Constantes de ángulo - sin cambios) ---
 private const val NUM_ITEMS = 7
@@ -36,41 +37,23 @@ private const val EXPANSION_FINISHED_KEY = "isExpansionFinished"
 
 
 // --- ¡¡¡MODIFICACIÓN AQUÍ!!! ---
-// --- NUEVA ARQUITECTURA DE DATOS ---
+// --- ARQUITECTURA DE DATOS SIMPLIFICADA ---
 
-// 1. El 'CarouselItem' (para GUZZ, Spotify, etc.)
+// 1. El 'CarouselItem' (para GUZZ, Spotify, etc. - sin cambios)
 @Serializable
 data class CarouselItem(
-    val imageUrl: String,
+    val imageUrl: String? = null, // <-- ¡HECHO NULO!
     val targetUrl: String? = null,
     val title: String? = null,
     val artist: String? = null,
-    val appPackageName: String? = null // ¡Campo para "refinar" URLs!
+    val appPackageName: String? = null
 )
 
-// 2. Las nuevas clases para "Concepto" (polimorfismo)
-@Serializable
-sealed interface ConceptBlock {
-    @Serializable
-    @SerialName("header") // Coincide con tu JSON: "type": "header"
-    data class HeaderBlock(val text: String) : ConceptBlock
+// 2. 'ConceptBlock' (¡ELIMINADO!)
+//    (Tu 'ConceptItem.kt' que creaste por separado
+//    se usará para la llamada de red)
 
-    @Serializable
-    @SerialName("paragraph") // "type": "paragraph"
-    data class ParagraphBlock(val text: String) : ConceptBlock
-
-    @Serializable
-    @SerialName("image") // "type": "image"
-    data class ImageBlock(val imageUrl: String) : ConceptBlock
-
-    @Serializable
-    @SerialName("link") // "type": "link"
-    data class LinkBlock(val title: String, val targetUrl: String) : ConceptBlock
-
-    // (Añadiremos 'embed' aquí cuando lo implementemos)
-}
-
-// 3. La "Super-Clase" que representa el JSON entero
+// 3. La "Super-Clase" (¡MODIFICADA!)
 @Serializable
 data class AppData(
     val GUZZ: List<CarouselItem>? = null,
@@ -78,25 +61,20 @@ data class AppData(
     val Bandcamp: List<CarouselItem>? = null,
     val Soundcloud: List<CarouselItem>? = null,
     val YouTube: List<CarouselItem>? = null,
-    val Concepto: List<ConceptBlock>? = null
+    // ¡¡ESTA LÍNEA HA CAMBIADO!!
+    val Concepto: List<CarouselItem>? = null
 )
 
-// 4. El nuevo estado de la UI (renombrado)
+// 4. El nuevo estado de la UI (sin cambios)
 sealed class AppState {
     object Loading : AppState()
-    data class Success(val data: AppData) : AppState() // ¡Ahora contiene AppData!
+    data class Success(val data: AppData) : AppState()
     data class Error(val message: String) : AppState()
 }
 
-// 5. El "traductor" de JSON ahora necesita saber sobre el polimorfismo
-private val jsonSerializerModule = SerializersModule {
-    polymorphic(ConceptBlock::class) {
-        subclass(ConceptBlock.HeaderBlock::class)
-        subclass(ConceptBlock.ParagraphBlock::class)
-        subclass(ConceptBlock.ImageBlock::class)
-        subclass(ConceptBlock.LinkBlock::class)
-    }
-}
+// 5. El "traductor" de JSON (¡ELIMINADO!)
+//    (private val jsonSerializerModule = ... se ha borrado)
+
 // --- FIN DE LA MODIFICACIÓN DE ARQUITECTURA ---
 
 
@@ -105,41 +83,89 @@ class HomeViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // --- (URL del JSON - ¡TU URL REAL!) ---
+    // --- (URL del JSON principal - sin cambios) ---
     private val JSON_URL = "https://www.mentat-music.com/mentapp/mentat_data_DEF.json"
 
-    // --- (Lógica de Ktor - ¡CON ARREGLO!) ---
+    // --- ¡URL DEL JSON DE CONCEPTO AÑADIDA! ---
+    private val CONCEPTO_JSON_URL = "https://www.mentat-music.com/mentapp/concepto.json"
+
+
+    // --- (Lógica de Ktor - ¡SIMPLIFICADA!) ---
     private val ktorClient = HttpClient(CIO) {
         install(ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
-                coerceInputValues = true // ¡Importante!
-                serializersModule = jsonSerializerModule // ¡Le enseñamos "Concepto"!
+                coerceInputValues = true
+                // ¡La línea de 'serializersModule' se ha borrado!
             })
         }
     }
 
-    // --- (El estado ahora es 'AppState') ---
+    // --- (El estado ahora es 'AppState' - sin cambios) ---
     private val _appState = MutableStateFlow<AppState>(AppState.Loading)
     val appState: StateFlow<AppState> = _appState.asStateFlow()
 
     init {
-        fetchData()
+        // Renombrado para más claridad
+        loadAllData()
     }
 
-    private fun fetchData() {
+    // --- ¡¡¡FUNCIÓN 'fetchData' REESCRITA!!! ---
+    private fun loadAllData() {
         viewModelScope.launch {
             _appState.value = AppState.Loading
             try {
-                // ¡Ahora pedimos un objeto 'AppData' (la super-clase)!
-                val data = ktorClient.get(JSON_URL).body<AppData>()
-                _appState.value = AppState.Success(data)
+                // 1. Lanzamos AMBAS llamadas de red en paralelo
+                val localDataJob = async {
+                    // Carga el JSON principal (GUZZ, Spotify, etc.)
+                    // (que incluye un 'Concepto' vacío o nulo)
+                    ktorClient.get(JSON_URL).body<AppData>()
+                }
+                val remoteConceptJob = async {
+                    // Carga tu 'concepto.json' (el array de 'ConceptItem')
+                    ktorClient.get(CONCEPTO_JSON_URL).body<List<ConceptItem>>()
+                }
+
+                // 2. Esperamos a que ambas terminen
+                val localData = localDataJob.await()
+                val remoteConceptItems = remoteConceptJob.await()
+
+                // 3. ¡LA TRADUCCIÓN!
+                // Convertimos tu 'List<ConceptItem>' (de concepto.json)
+                // en la 'List<CarouselItem>' (que usa la UI)
+                val translatedConceptData = remoteConceptItems.map { conceptItem ->
+                    CarouselItem(
+                        title = conceptItem.title,
+                        artist = conceptItem.artist,
+                        imageUrl = conceptItem.imageUrl,
+                        targetUrl = conceptItem.url_embed, // Mapeamos 'url_embed' a 'targetUrl'
+                        appPackageName = null // Lo dejamos null
+                    )
+                }
+
+                // 4. ¡LA FUSIÓN!
+                // Creamos el objeto final, reemplazando el 'Concepto' vacío
+                // del JSON principal por nuestra lista traducida.
+                val finalData = localData.copy(
+                    Concepto = translatedConceptData
+                )
+
+                // 5. ¡Éxito!
+                _appState.value = AppState.Success(finalData)
+
             } catch (e: Exception) {
-                Log.e("HomeViewModel", "Error al cargar JSON", e)
+                Log.e("HomeViewModel", "Error al cargar datos (local o remoto)", e)
                 _appState.value = AppState.Error(e.message ?: "Error desconocido")
             }
         }
     }
+
+    // --- ¡AÑADIDO! Limpieza de Ktor ---
+    override fun onCleared() {
+        super.onCleared()
+        ktorClient.close()
+    }
+
 
     // --- (Lógica de Rotación - sin cambios) ---
     private val ROTATION_KEY = "rotationAngle"
@@ -148,7 +174,7 @@ class HomeViewModel(
         savedStateHandle[ROTATION_KEY] = angle
     }
 
-
+    // --- (Lógica de Estado de UI - sin cambios) ---
     val isAnimatingOut: StateFlow<Boolean> = savedStateHandle.getStateFlow(ANIMATING_OUT_KEY, false)
     val clickedIconIndex: StateFlow<Int> = savedStateHandle.getStateFlow(CLICKED_INDEX_KEY, -1)
     val isExpansionFinished: StateFlow<Boolean> = savedStateHandle.getStateFlow(EXPANSION_FINISHED_KEY, false)

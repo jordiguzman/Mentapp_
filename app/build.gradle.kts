@@ -61,6 +61,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.core.splashscreen)
 
     // --- LIBRERÍAS DE KTOR Y SERIALIZATION ---
     // (Añadidas para la carga de red del JSON)
