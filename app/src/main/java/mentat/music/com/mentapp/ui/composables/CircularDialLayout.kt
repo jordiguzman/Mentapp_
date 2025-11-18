@@ -90,7 +90,7 @@ fun CircularDialLayout(
                 val targetSize = when {
                     isAnimatingOut && isClickedIcon -> 1000.dp
                     isAnimatingOut && !isClickedIcon -> 48.dp
-                    isActive -> 76.dp // <-- ¡Tu tamaño grande!
+                    isActive -> 72.dp // <-- ¡Tu tamaño grande!
                     else -> 48.dp
                 }
                 // --- (Animación de tamaño - sin cambios) ---

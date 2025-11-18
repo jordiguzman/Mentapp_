@@ -1,0 +1,40 @@
+=================================================================
+PROYECTO MENTAPP - EXPANSIÓN "LADO B" (Nuevo Dial)
+=================================================================
+
+OBJETIVO:
+Ampliar el contenido de la app sin saturar el diseño principal.
+Crear una metáfora de "Cara A / Cara B" (como un vinilo o cassette).
+
+MECÁNICA:
+1. Botón Central: Un botón "+" o "Plus" en el centro del dial (el agujero del donut).
+2. Acción: Al pulsar, el dial gira o transiciona y muestra 7 iconos NUEVOS.
+3. Navegación: El botón central cambia a "X" o "Volver" para regresar a la Cara A.
+
+CONTENIDO PLANIFICADO (CARA B):
+1. Sesiones DJ:
+   - Formato: Carrusel (similar a YouTube).
+   - Fuente: JSON externo (sesiones.json).
+   - Visualización: WebView/Youtube Embed.
+
+2. Texto Especial (Artículos/Blog):
+   - Formato: Carrusel "Modo Concepto" (Rectangular + Scroll de texto).
+   - Fuente: JSON externo (textos.json).
+
+3. Suscripción:
+   - Acción: Enlace directo.
+   - Visualización: WebView interna mostrando formulario (Mailchimp/Google Forms).
+
+4. Contenido Exclusivo (VIP):
+   - Mecánica de Acceso: "Login Punk".
+   - Flujo: Al clicar, sale un Popup pidiendo un código numérico (ej. 6 cifras).
+   - Verificación: La app compara el input con un código guardado en un JSON remoto (seguridad baja, flexibilidad alta).
+   - Éxito: Si coincide, carga un JSON oculto (exclusivo.json).
+
+5. [PENDIENTE]: Espacio libre.
+6. [PENDIENTE]: Espacio libre.
+7. [PENDIENTE]: Espacio libre.
+
+NOTA TÉCNICA:
+Requiere una variable de estado `isSideB` en HomeViewModel y dos listas de `menuItems` en CircularDialLayout.
+=================================================================

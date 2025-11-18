@@ -7,10 +7,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-// --- ¡¡¡IMPORTS NUEVOS PARA EL SCROLL!!! ---
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-// -----------------------------------------
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
@@ -18,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -40,10 +40,12 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.request.RequestOptions
 import mentat.music.com.mentapp.R
+import mentat.music.com.mentapp.ui.VibrationHelper // Asegúrate de tener tu helper
 import mentat.music.com.mentapp.ui.navigation.AppScreens
+import mentat.music.com.mentapp.ui.rememberVibrator // Y la función remember
 import mentat.music.com.mentapp.ui.screens.home.viewmodel.CarouselItem
 
-// --- (Definición de la fuente - sin cambios) ---
+// --- (Definición de la fuente) ---
 private val verdanaFontFamily = FontFamily(
     Font(R.font.verdana_regular, FontWeight.Normal),
     Font(R.font.verdana_italic, FontWeight.Normal, FontStyle.Italic),
@@ -57,9 +59,18 @@ fun AlbumCarousel(
     modifier: Modifier = Modifier,
     items: List<CarouselItem>,
     navController: NavController,
-    isConceptMode: Boolean // <-- ¡¡¡AÑADIDO!!!
+    isConceptMode: Boolean
 ) {
     val pagerState = rememberPagerState { items.size }
+    val sidePadding = if (isConceptMode) 16.dp else 48.dp
+    val vibrator = rememberVibrator()
+
+    // Lógica del "Tick" al girar
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect {
+            vibrator.vibrateTick()
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -71,13 +82,14 @@ fun AlbumCarousel(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
-            contentPadding = PaddingValues(horizontal = 48.dp)
+            contentPadding = PaddingValues(horizontal = sidePadding),
+            pageSpacing = if (isConceptMode) 16.dp else 0.dp
         ) { pageIndex ->
             val item = items[pageIndex]
             AlbumCard(
                 item = item,
                 navController = navController,
-                isConceptMode = isConceptMode // <-- ¡¡¡AÑADIDO!!!
+                isConceptMode = isConceptMode
             )
         }
 
@@ -91,17 +103,18 @@ fun AlbumCarousel(
 
 /**
  * La tarjeta individual
- * (Ahora con "Modo Concepto" y scroll)
+ * (ESTRATEGIA ROBUSTA: Texto anclado al fondo en modo Disco)
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
 fun AlbumCard(
     item: CarouselItem,
     navController: NavController,
-    isConceptMode: Boolean // <-- ¡¡¡AÑADIDO!!!
+    isConceptMode: Boolean
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val vibrator = rememberVibrator()
     val isClickable = item.targetUrl != null
 
     Column(
@@ -109,21 +122,19 @@ fun AlbumCard(
             .fillMaxSize()
             .padding(vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top // (Esto está bien para ambos modos)
+        verticalArrangement = Arrangement.Top
     ) {
 
-        // --- ¡¡¡MODIFICACIÓN DE TAMAÑO DE IMAGEN!!! ---
-        // 1. Decidimos el aspect ratio
-        val imageAspectRatio = if (isConceptMode) 1.5f else 1f // 1.5f es rectangular
-
         // --- 1. LA IMAGEN ---
+        val imageAspectRatio = if (isConceptMode) 1.5f else 1f
+
         if (item.imageUrl != null) {
             GlideImage(
                 model = item.imageUrl,
                 contentDescription = item.title ?: "Portada",
                 modifier = Modifier
                     .fillMaxWidth(0.8f)
-                    .aspectRatio(imageAspectRatio) // <-- ¡Aplicamos el ratio dinámico!
+                    .aspectRatio(imageAspectRatio)
                     .shadow(
                         elevation = 20.dp,
                         shape = RoundedCornerShape(24.dp),
@@ -135,7 +146,9 @@ fun AlbumCard(
                     .clickable(enabled = isClickable) {
                         if (item.targetUrl == null) return@clickable
 
-                        // 1. Lógica "App-First" (Bandcamp, etc.)
+                        // ¡PUM! Vibración
+                        vibrator.vibrateClick()
+
                         if (item.appPackageName != null) {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.targetUrl))
                             intent.setPackage(item.appPackageName)
@@ -144,9 +157,7 @@ fun AlbumCard(
                             } catch (e: ActivityNotFoundException) {
                                 uriHandler.openUri(item.targetUrl)
                             }
-                        }
-                        // 2. Lógica "Concepto" (WebView)
-                        else {
+                        } else {
                             navController.navigate(
                                 AppScreens.WebViewScreen.createRoute(item.targetUrl)
                             )
@@ -160,14 +171,13 @@ fun AlbumCard(
                             .skipMemoryCache(true)
                     )
                 }
-            ) // --- FIN DE GLIDEIMAGE ---
+            )
         }
 
-        // --- ¡¡¡MODIFICACIÓN DE LAYOUT DE TEXTO!!! ---
+        // --- 2. TEXTOS ---
         if (isConceptMode) {
-
-            // --- MODO CONCEPTO (Scrollable) ---
-            Spacer(Modifier.height(16.dp)) // Espacio entre imagen y título
+            // --- MODO CONCEPTO (Texto Largo + Scroll) ---
+            Spacer(Modifier.height(16.dp))
 
             item.title?.let { title ->
                 Text(
@@ -183,34 +193,36 @@ fun AlbumCard(
                 )
             }
 
-            Spacer(Modifier.height(8.dp)) // Espacio entre título y texto
+            Spacer(Modifier.height(8.dp))
 
             item.artist?.let { artistText ->
-                // ¡El contenedor con Scroll!
                 Column(
                     modifier = Modifier
-                        .fillMaxSize() // Ocupa el resto del espacio
-                        .padding(horizontal = 12.dp) // Un poco de padding
-                        .verticalScroll(rememberScrollState()) // ¡AQUÍ ESTÁ EL SCROLL!
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = artistText, // El texto largo
-                        fontSize = 14.sp,
+                        text = artistText,
+                        fontSize = 18.sp,
+                        lineHeight = 24.sp,
                         fontWeight = FontWeight.Normal,
                         color = Color.White.copy(alpha = 0.8f),
-                        textAlign = TextAlign.Start, // El texto largo mejor alineado al inicio
+                        textAlign = TextAlign.Start,
                         fontFamily = verdanaFontFamily,
-                        // Sin 'maxLines' ni 'height'
                     )
-                    Spacer(Modifier.height(16.dp)) // Un poco de espacio al final
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 
         } else {
+            // --- MODO DISCO (Estrategia Muelle Central) ---
 
-            // --- MODO DISCO (Original, texto fijo abajo) ---
-            Spacer(Modifier.weight(1f)) // Espaciador elástico
+            // 1. EL MUELLE: Ocupa TODO el espacio vacío central
+            // Esto empuja la imagen hacia arriba y los textos hacia abajo.
+            Spacer(Modifier.weight(1f))
 
+            // 2. Título
             item.title?.let { title ->
                 Text(
                     text = title.uppercase(),
@@ -220,12 +232,16 @@ fun AlbumCard(
                     textAlign = TextAlign.Center,
                     fontFamily = verdanaFontFamily,
                     maxLines = 2,
+                    minLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(42.dp) // Altura fija
+                    modifier = Modifier.fillMaxWidth(0.9f)
                 )
             }
+
+            // 3. Separación fija mínima (seguridad visual)
+            Spacer(Modifier.height(4.dp))
+
+            // 4. Artista (Pegado abajo)
             item.artist?.let { artist ->
                 Text(
                     text = artist,
@@ -235,18 +251,17 @@ fun AlbumCard(
                     textAlign = TextAlign.Center,
                     fontFamily = verdanaFontFamily,
                     maxLines = 1,
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .height(20.dp) // Altura fija
+                    modifier = Modifier.fillMaxWidth(0.9f)
                 )
             }
-        } // --- FIN DEL IF/ELSE ---
 
-    } // --- FIN DE LA COLUMN (TARJETA) ---
+            // 5. Margen de seguridad inferior para no tocar los puntos
+            Spacer(Modifier.height(12.dp))
+        }
+    }
 }
 
-
-// --- (HorizontalPagerIndicator - sin cambios) ---
+// --- (HorizontalPagerIndicator) ---
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HorizontalPagerIndicator(

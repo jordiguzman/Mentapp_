@@ -1,0 +1,40 @@
+=================================================================
+PROYECTO MENTAPP - LISTA DE PULIDO Y MEJORAS (POLISH)
+=================================================================
+
+1. ANIMACIÓN DEL FONDO (OPTIMIZACIÓN)
+   - Problema: El fondo se mueve detrás del carrusel y distrae/gasta recursos.
+   - Solución: Usar la variable `isFrozen`. Al entrar en el carrusel,
+     la animación debe "congelarse" en el fotograma actual (no irse a negro).
+
+2. CARRUSEL "CONCEPTO" (VISUAL)
+   - Problema: El texto no cabe y se ve apretado.
+   - Solución A: Aumentar tamaño de fuente y márgenes (padding relativo).
+   - Solución B: Eliminar la visibilidad de las tarjetas vecinas. En este modo,
+     solo se debe ver UNA tarjeta centrada para facilitar la lectura.
+
+3. ESTILO DE ICONOS INACTIVOS
+   - Problema: La desaturación (gris) o transparencia (mezcla con fondo) ensucia el color.
+   - Solución: Usar filtro de "Luminosidad" (Darken).
+   - Objetivo: Que el rojo siga siendo rojo, pero "apagado/oscuro", no gris ni lila.
+
+4. BUG DE SPOTIFY (FUNCIONAL)
+   - Problema: Al clicar Spotify intenta abrir una URL web y falla.
+   - Causa: "Spotify" no está en la lista "VIP" del HomeScreen que activa la lógica de carga de datos.
+   - Solución: Añadir "Spotify" al `when` del `HomeScreen` para que cargue su JSON.
+
+5. BARRAS DE NAVEGACIÓN (INMERSIVO)
+   - Problema: Ahora mismo están fijas.
+   - Solución: Implementar modo "Sticky Immersive". Ocultas por defecto, aparecen
+     al deslizar desde el borde y desaparecen solas tras unos segundos.
+
+6. BOTÓN DE SALIDA
+   - Objetivo: Cerrar la app elegantemente.
+   - Ubicación: Esquina superior (Derecha o Izquierda), NO en el centro.
+   - Icono: Power o X minimalista.
+
+7. VIBRACIÓN (HAPTIC FEEDBACK)
+   - Objetivo: Confirmación táctil de las acciones.
+   - Lógica: Vibración suave al "Entrar" (clic en icono o tarjeta).
+   - Excepción: Sin vibración al "Volver" (BackHandler).
+=================================================================
