@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -115,6 +116,12 @@ fun HomeScreen(
     val isAnimatingOut by homeViewModel.isAnimatingOut.collectAsState()
     val clickedIconIndex by homeViewModel.clickedIconIndex.collectAsState()
     val isExpansionFinished by homeViewModel.isExpansionFinished.collectAsState()
+
+
+
+    // --- OBTENIENDO EL ESTADO DEL PAGINADOR ---
+    val currentPage by homeViewModel.currentPage // <-- ¡NUEVO ESTADO!
+
     val rotationAngle = remember { Animatable(savedRotationAngle) }
     val scope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
@@ -247,7 +254,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .alpha(dialSceneAlpha)
-                    .pointerInput(Unit) {
+                    .pointerInput(clickedIconIndex) {
                         if (isAnimatingOut || isExpansionFinished) return@pointerInput
                         var centerX = 0f
                         var centerY = 0f
@@ -456,8 +463,21 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         val itemsToShow = carouselData ?: conceptDataAsCarousel
+                        val safeInitialPage = if (itemsToShow.isNullOrEmpty()) 0 else currentPage
+                        val itemSize = itemsToShow?.size ?: 0 // Obtener el tamaño de la lista
                         if (itemsToShow != null) {
-                            AlbumCarousel(items = itemsToShow, navController = navController, isConceptMode = isConceptMode)
+                            // Usamos el 'clickedIconIndex' como una clave de nivel superior
+                            // para forzar la recreación cada vez que se abre un nuevo Carousel.
+                            key(safeInitialPage to itemSize) {
+                                AlbumCarousel(
+                                    items = itemsToShow,
+                                    navController = navController,
+                                    isConceptMode = isConceptMode,
+                                    initialPage = safeInitialPage,
+                                    onPageChanged = homeViewModel::setCurrentPage
+                                )
+                            }
+                            // -------------------------------------------
                         } else if (appState is AppState.Loading) {
                             CircularProgressIndicator(color = Color.White.copy(alpha = 0.7f), strokeWidth = 3.dp)
                         } else if (appState is AppState.Error) {

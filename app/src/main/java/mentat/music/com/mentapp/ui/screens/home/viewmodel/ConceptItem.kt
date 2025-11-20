@@ -11,5 +11,5 @@ data class ConceptItem(
     val title: String,
     val artist: String, // Usamos 'artist' para el subtítulo
     val imageUrl: String,
-    val url_embed: String? // Nullable
+    val url_embed: String? =null  // Nullable
 )

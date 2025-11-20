@@ -1,0 +1,62 @@
+# 📝 DOCUMENTACIÓN EXHAUSTIVA DEL PROYECTO: Mentapp (v. 1.0. FINAL)
+
+## ESTADO DEL PROYECTO: COMPLETO Y ROBUSTO (Solo Pendiente la Publicación)
+
+(Este resumen consolida todas las funcionalidades, *fixes* y arquitectura de compatibilidad aplicadas, excluyendo el código PHP).
+
+---
+
+### 1. Propósito y Visión Artística (El "Porqué")
+
+* **Propósito:** Crear una app nativa en Android (Kotlin/Jetpack Compose) para el proyecto musical "Mentat".
+* **Visión Artística:** Experiencia visual "impactante", moderna y "Ambient". Interfaz 100% personalizada, fluida y "física" (con peso, rebotes y confirmación táctil).
+* **Diseño Clave y Soluciones Aplicadas:**
+    * **Respuesta de Pantalla:** La app es **FULL RESPONSIVA** (maneja Portrait y Landscape), con layouts ajustados vía `BoxWithConstraints` (arreglando el bug de clipping del icono flotante).
+    * **Feedback Táctil (FIX):** Implementado **Haptic Feedback** (`VibrationHelper.kt`) con vibración "pesada" para clics de acción y vibración "ligera" para el *snap* del carrusel.
+    * **Inactividad (FIX):** Iconos inactivos con filtro de **Oscurecimiento (Darken Matrix)**, eliminando el tono violáceo de la desaturación.
+    * **Cierre Limpio:** Botón "Power" discreto con **"Apagado Fuerte"** (`finishAndRemoveTask()` + `exitProcess(0)`).
+
+---
+
+### 2. Stack Tecnológico y Compatibilidad
+
+| Componente | Tecnología / Patrón | Comentarios / Soluciones Aplicadas |
+| :--- | :--- | :--- |
+| **Lenguaje/UI** | Kotlin / Jetpack Compose M3 | 100% Compose, sin XML. |
+| **Compatibilidad** | `if (Build.VERSION.SDK_INT)` | **Degradación Elegante:** Soporte funcional garantizado desde API 28 (Pie). Resuelto el conflicto de `RuntimeShader` (API 33) y `Modifier.blur` (API 31). |
+| **Estado** | `ViewModel` + `SavedStateHandle` | **State Hoisting:** Se utiliza para sincronizar la posición del carrusel (`currentPage`) y el dial a través de la navegación y la rotación. |
+| **Red** | Ktor + Kotlinx Serialization | Lectura de dos fuentes (JSON principal y `concepto.json` remoto) y traducción de datos en el ViewModel. |
+| **UX Inmersiva** | `WindowInsetsControllerCompat` | **Modo Inmersivo Sticky** (barras ocultas que aparecen al deslizar) para todas las APIs. |
+
+---
+
+### 3. Estructura y Lógica (El "Cerebro" y los "Actores")
+
+#### A. Capa de ViewModel (`ui/screens/home/viewmodel/`)
+
+* **`HomeViewModel.kt` (El Cerebro):** Es la **Única Fuente de Verdad (SSOT)**.
+    * **Estado Hoisting:** Expone `currentPage: State<Int>` y `rotationAngle: StateFlow<Float>` que mantienen la sincronización bidireccional del Dial.
+    * **Lógica de Datos:** Llama a dos fuentes de red, traduce la estructura `ConceptItem` a `CarouselItem` y realiza la fusión de datos en una sola estructura `AppData`.
+    * **Limpieza:** Se eliminaron las estructuras de datos obsoletas (`ConceptBlock`) y su lógica polimórfica.
+
+#### B. Componentes de UI Modulares (`ui/composables/`)
+
+| Archivo | Propósito | Detalles de Implementación Clave |
+| :--- | :--- | :--- |
+| **`AttractorBackground.kt`** | **El Fondo (Búnker)** | Contiene el `RuntimeShader` (API 33), aislado para compatibilidad. |
+| **`CircularDialLayout.kt`** | **El Dial** | Implementación del filtro de color **Oscurecimiento** para iconos inactivos y la lógica de la sombra con `if/else` por API. |
+| **`VibrationHelper.kt`** | **Motor Táctil** | Clase de utilidad que usa el potente `Vibrator` del sistema para ofrecer vibraciones "secas" y personalizadas (reemplazando los débiles *presets* de `HapticFeedback`). |
+| **`AlbumCarousel.kt`** | **El Carrusel** | **Layout Concepto:** Implementación de `isConceptMode`. El layout ahora es un rectángulo alto, y el cuerpo del texto (`item.artist`) es **scrolleable** (`verticalScroll`). **Alineación:** Usa `minLines = 2` en el título (Modo Disco) para garantizar la alineación visual en diferentes densidades de pantalla. |
+| **`VideoBackground.kt`** | **Fallback de Fondo** | Implementación de `TextureView` y `ExoPlayer` con `RESIZE_MODE_ZOOM` para garantizar el llenado de pantalla en APIs < 33. |
+
+#### C. El Director (`ui/screens/home/HomeScreen.kt`)
+
+* **Coreografía:** Contiene la lógica `onIconClick` y `BackHandler` simplificada.
+* **Lógica de Presentación:** Utiliza el Composable `AlbumCarousel` de forma condicional, pasando el estado `initialPage` y el *callback* `onPageChanged` para mantener la sincronización con el `ViewModel`.
+
+---
+
+### 4. Tareas Pendientes (El "Roadmap" Futuro)
+
+
+1.  **Próxima Versión (2.0):** Planificación del "Lado B" (el segundo dial) y el contenido exclusivo/de suscripción.

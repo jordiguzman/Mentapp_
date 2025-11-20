@@ -2,7 +2,6 @@ package mentat.music.com.mentapp.ui.composables
 
 import android.os.Build
 import androidx.annotation.DrawableRes
-// import androidx.annotation.RequiresApi // <-- ¡ELIMINADO!
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -20,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow // <-- ¡AÑADIDO!
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
@@ -31,7 +30,6 @@ import mentat.music.com.mentapp.ui.navigation.AppScreens
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
-// ¡NUEVA IMPORTACIÓN!
 import mentat.music.com.mentapp.ui.composables.TRANSITION_DURATION
 
 // --- (data class MenuItem y menuItems - sin cambios) ---
@@ -54,7 +52,6 @@ val angleStep = (2 * Math.PI.toFloat() / menuItems.size)
 val targetAngleRad = (Math.PI.toFloat() / 2.0f)
 
 
-// @RequiresApi(Build.VERSION_CODES.S) // <-- ¡ELIMINADO!
 @Composable
 fun CircularDialLayout(
     modifier: Modifier = Modifier,
@@ -86,17 +83,16 @@ fun CircularDialLayout(
                 val isActive = (diff < 0.05f || abs(diff - 2 * Math.PI.toFloat()) < 0.05f)
                 val isClickedIcon = (index == clickedIconIndex)
 
-                // --- (Lógica de animación de tamaño - 76.dp - sin cambios) ---
+                // --- (Lógica de animación de tamaño - sin cambios) ---
                 val targetSize = when {
                     isAnimatingOut && isClickedIcon -> 1000.dp
                     isAnimatingOut && !isClickedIcon -> 48.dp
-                    isActive -> 72.dp // <-- ¡Tu tamaño grande!
+                    isActive -> 64.dp // <-- Tu valor actual (64dp)
                     else -> 48.dp
                 }
-                // --- (Animación de tamaño - sin cambios) ---
                 val animatedSize by animateDpAsState(
                     targetValue = targetSize,
-                    animationSpec = tween(durationMillis = TRANSITION_DURATION), // <-- ¡TIEMPO NUEVO!
+                    animationSpec = tween(durationMillis = TRANSITION_DURATION),
                     label = "sizeAnimation"
                 )
 
@@ -107,7 +103,7 @@ fun CircularDialLayout(
                 }
                 val containerAnimatedAlpha by animateFloatAsState(
                     targetValue = containerTargetAlpha,
-                    animationSpec = tween(durationMillis = TRANSITION_DURATION), // <-- ¡TIEMPO NUEVO!
+                    animationSpec = tween(durationMillis = TRANSITION_DURATION),
                     label = "containerAlpha"
                 )
 
@@ -123,37 +119,39 @@ fun CircularDialLayout(
                 ) {
 
                     // ==========================================================
-                    // --- ¡¡¡INICIO DEL CAMBIO DE COMPATIBILIDAD!!! ---
+                    // --- ¡¡¡INICIO DEL ARREGLO DE SOMBRA!!! ---
                     // ==========================================================
                     if (!isAnimatingOut) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize(0.9f)
-                                .offset(x = 6.dp, y = 6.dp) // <-- Tu ajuste
-                                // Comprobamos la versión del SDK
+                                .offset(x = 6.dp, y = 6.dp)
                                 .then(
                                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        // --- API 31+ (Android 12): Tu "sombra a la brava" ---
+                                        // --- API 31+ (Android 12): BLUR (Funciona bien) ---
                                         Modifier
                                             .clip(CircleShape)
-                                            .background(Color.Black.copy(alpha = 0.2f)) // <-- Tu ajuste
-                                            .blur(24.dp) // <-- Tu ajuste
+                                            .background(Color.Black.copy(alpha = 0.2f))
+                                            .blur(24.dp)
                                     } else {
-                                        // --- API < 31 (Android 11 o menos): Fallback "glow" ---
-                                        Modifier.shadow(
-                                            elevation = 16.dp,
-                                            shape = CircleShape,
-                                            clip = false, // 'clip = false' para que el "glow" se extienda
-                                            // Aplicamos la transparencia al color de la sombra
-                                            spotColor = Color.Black.copy(alpha = 0.3f),
-                                            ambientColor = Color.Black.copy(alpha = 0.3f)
-                                        )
+                                        // --- API < 31 (Android 11 o menos): SHADOW (¡FIX!) ---
+                                        // Añadimos la superficie (clip y background) para que la sombra se proyecte.
+                                        Modifier
+                                            .clip(CircleShape) // <-- Restaurado
+                                            .background(Color.Black.copy(alpha = 0.2f)) // <-- ¡SUPERFICIE BASE!
+                                            .shadow(
+                                                elevation = 24.dp, // Subido
+                                                shape = CircleShape,
+                                                clip = false,
+                                                spotColor = Color.Black.copy(alpha = 0.5f), // Subido
+                                                ambientColor = Color.Black.copy(alpha = 0.5f) // Subido
+                                            )
                                     }
                                 )
                         )
                     }
                     // ==========================================================
-                    // --- ¡¡¡FIN DEL CAMBIO DE COMPATIBILIDAD!!! ---
+                    // --- ¡¡¡FIN DEL ARREGLO DE SOMBRA!!! ---
                     // ==========================================================
 
 
@@ -186,8 +184,6 @@ fun CircularDialLayout(
 
         layout(layoutWidth, layoutHeight) {
             placables.forEachIndexed { index, placable ->
-                // ¡LÓGICA SIMPLIFICADA! (Arreglo de "Inconsistencia")
-                // Todos los iconos se quedan en su sitio en el dial.
                 val angle = (angleStep * index) + currentRotation
                 val x = (centerX + radiusPx * cos(angle.toDouble())).toInt() - (placable.width / 2)
                 val y = (centerY + radiusPx * sin(angle.toDouble())).toInt() - (placable.height / 2)

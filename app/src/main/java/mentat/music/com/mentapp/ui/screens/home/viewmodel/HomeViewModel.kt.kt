@@ -1,6 +1,8 @@
 package mentat.music.com.mentapp.ui.screens.home.viewmodel
 
 import android.util.Log
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,9 +20,8 @@ import kotlinx.coroutines.launch
 // import kotlinx.serialization.SerialName // Ya no se usa
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-// import kotlinx.serialization.modules.SerializersModule // Ya no se usa
-// import kotlinx.serialization.modules.polymorphic // Ya no se usa
-// import kotlinx.serialization.modules.subclass // Ya no se usa
+import androidx.compose.runtime.State // <-- ¡Importación para el tipo 'State' genérico!
+import androidx.compose.runtime.mutableStateOf // <-- ¡Importación para la función de inicialización!
 
 // --- (Constantes de ángulo - sin cambios) ---
 private const val NUM_ITEMS = 7
@@ -89,6 +90,8 @@ class HomeViewModel(
     // --- ¡URL DEL JSON DE CONCEPTO AÑADIDA! ---
     private val CONCEPTO_JSON_URL = "https://www.mentat-music.com/mentapp/concepto.json"
 
+    private val _currentPage = mutableIntStateOf(0)
+    val currentPage: State<Int> = _currentPage
 
     // --- (Lógica de Ktor - ¡SIMPLIFICADA!) ---
     private val ktorClient = HttpClient(CIO) {
@@ -108,6 +111,9 @@ class HomeViewModel(
     init {
         // Renombrado para más claridad
         loadAllData()
+    }
+    fun setCurrentPage(page: Int) {
+        _currentPage.value = page
     }
 
     // --- ¡¡¡FUNCIÓN 'fetchData' REESCRITA!!! ---

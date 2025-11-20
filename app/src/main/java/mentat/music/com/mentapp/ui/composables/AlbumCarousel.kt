@@ -26,6 +26,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -40,12 +42,12 @@ import com.bumptech.glide.integration.compose.ExperimentalGlideComposeApi
 import com.bumptech.glide.integration.compose.GlideImage
 import com.bumptech.glide.request.RequestOptions
 import mentat.music.com.mentapp.R
-import mentat.music.com.mentapp.ui.VibrationHelper // Asegúrate de tener tu helper
+import mentat.music.com.mentapp.ui.VibrationHelper
 import mentat.music.com.mentapp.ui.navigation.AppScreens
-import mentat.music.com.mentapp.ui.rememberVibrator // Y la función remember
+import mentat.music.com.mentapp.ui.rememberVibrator
 import mentat.music.com.mentapp.ui.screens.home.viewmodel.CarouselItem
 
-// --- (Definición de la fuente) ---
+// --- (Definición de la fuente - sin cambios) ---
 private val verdanaFontFamily = FontFamily(
     Font(R.font.verdana_regular, FontWeight.Normal),
     Font(R.font.verdana_italic, FontWeight.Normal, FontStyle.Italic),
@@ -59,18 +61,37 @@ fun AlbumCarousel(
     modifier: Modifier = Modifier,
     items: List<CarouselItem>,
     navController: NavController,
-    isConceptMode: Boolean
+    isConceptMode: Boolean,
+    initialPage: Int, // <-- Estado de control del ViewModel (Lectura)
+    onPageChanged: (Int) -> Unit // <-- Callback para informar al ViewModel (Escritura)
 ) {
-    val pagerState = rememberPagerState { items.size }
     val sidePadding = if (isConceptMode) 16.dp else 48.dp
-    val vibrator = rememberVibrator()
+    val vibrator = rememberVibrator() // Asumo que esta función está disponible
 
-    // Lógica del "Tick" al girar
+    // 1. Inicializa el PagerState. Usa initialPage solo en la primera composición
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { items.size }
+    )
+
+    // 2. Control (UI -> VM): Notifica los cambios de la UI al ViewModel (Esto es correcto)
     LaunchedEffect(pagerState) {
-        snapshotFlow { pagerState.settledPage }.collect {
-            vibrator.vibrateTick()
+        snapshotFlow { pagerState.settledPage }.collect { pageIndex ->
+            // vibrator.vibrateTick()
+            onPageChanged(pageIndex)
         }
     }
+
+    // 3. CONTROL (VM -> UI): ¡EL FIX! Sincronización manual.
+    // Si 'initialPage' (el estado del ViewModel) cambia, forzamos el scroll.
+    LaunchedEffect(initialPage) {
+        // Usamos scrollToPage para forzar un cambio inmediato al estado del VM.
+        // Se ejecuta cada vez que initialPage cambia (ej. al volver del 'back').
+        if (pagerState.currentPage != initialPage) {
+            pagerState.scrollToPage(initialPage)
+        }
+    }
+    // -------------------------------
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -102,8 +123,7 @@ fun AlbumCarousel(
 }
 
 /**
- * La tarjeta individual
- * (ESTRATEGIA ROBUSTA: Texto anclado al fondo en modo Disco)
+ * La tarjeta individual (sin cambios en su lógica interna)
  */
 @OptIn(ExperimentalGlideComposeApi::class)
 @Composable
@@ -146,8 +166,7 @@ fun AlbumCard(
                     .clickable(enabled = isClickable) {
                         if (item.targetUrl == null) return@clickable
 
-                        // ¡PUM! Vibración
-                        vibrator.vibrateClick()
+                        vibrator.vibrateClick() // <-- VIBRACIÓN DE CLIC
 
                         if (item.appPackageName != null) {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.targetUrl))
@@ -176,7 +195,7 @@ fun AlbumCard(
 
         // --- 2. TEXTOS ---
         if (isConceptMode) {
-            // --- MODO CONCEPTO (Texto Largo + Scroll) ---
+            // ... (Lógica de Scroll sin cambios) ...
             Spacer(Modifier.height(16.dp))
 
             item.title?.let { title ->
@@ -192,9 +211,7 @@ fun AlbumCard(
                     modifier = Modifier.fillMaxWidth(0.9f)
                 )
             }
-
             Spacer(Modifier.height(8.dp))
-
             item.artist?.let { artistText ->
                 Column(
                     modifier = Modifier
@@ -216,13 +233,8 @@ fun AlbumCard(
             }
 
         } else {
-            // --- MODO DISCO (Estrategia Muelle Central) ---
-
-            // 1. EL MUELLE: Ocupa TODO el espacio vacío central
-            // Esto empuja la imagen hacia arriba y los textos hacia abajo.
+            // --- MODO DISCO (Lógica de Disco sin cambios) ---
             Spacer(Modifier.weight(1f))
-
-            // 2. Título
             item.title?.let { title ->
                 Text(
                     text = title.uppercase(),
@@ -232,16 +244,12 @@ fun AlbumCard(
                     textAlign = TextAlign.Center,
                     fontFamily = verdanaFontFamily,
                     maxLines = 2,
-                    minLines = 1,
+                    minLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth(0.9f)
                 )
             }
-
-            // 3. Separación fija mínima (seguridad visual)
             Spacer(Modifier.height(4.dp))
-
-            // 4. Artista (Pegado abajo)
             item.artist?.let { artist ->
                 Text(
                     text = artist,
@@ -254,14 +262,13 @@ fun AlbumCard(
                     modifier = Modifier.fillMaxWidth(0.9f)
                 )
             }
-
-            // 5. Margen de seguridad inferior para no tocar los puntos
             Spacer(Modifier.height(12.dp))
         }
     }
 }
 
-// --- (HorizontalPagerIndicator) ---
+
+// --- (HorizontalPagerIndicator - sin cambios) ---
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HorizontalPagerIndicator(
