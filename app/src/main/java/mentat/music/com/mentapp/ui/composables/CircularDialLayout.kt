@@ -44,8 +44,7 @@ val menuItems = listOf(
     MenuItem("Spotify", R.drawable.ic_menu_streams, "spotify_screen", Color(0xFF1DB954)),
     MenuItem("Social", R.drawable.ic_menu_social, "https://bsky.app/profile/juanmentat.bsky.social", Color(0xFF0085FF)),
     MenuItem("YouTube", R.drawable.ic_menu_youtube, "youtube_screen", Color(0xFFFF0000)),
-    MenuItem("Concepto", R.drawable.ic_menu_concept, "https://www.mentat-music.com/site/concepto/", Color(0xFF8A2BE2)),
-    MenuItem("Bandcamp", R.drawable.ic_menu_bandcamp, "bandcamp_screen", Color(0xFF629AA9)),
+    MenuItem("Entradas", R.drawable.ic_menu_concept, "https://www.mentat-music.com/site/concepto/", Color(0xFF8A2BE2)),    MenuItem("Bandcamp", R.drawable.ic_menu_bandcamp, "bandcamp_screen", Color(0xFF629AA9)),
     MenuItem("Soundcloud", R.drawable.ic_menu_soundcloud, "soundcloud_screen", Color(0xFFFF5500))
 )
 val angleStep = (2 * Math.PI.toFloat() / menuItems.size)

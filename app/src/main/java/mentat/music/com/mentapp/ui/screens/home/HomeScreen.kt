@@ -141,6 +141,9 @@ fun HomeScreen(
             dialScale.animateTo(targetValue = 1.0f, animationSpec = bounceSpec)
         }
     }
+    // 1. RECOLECCIÓN DEL ESTADO
+    val currentLanguage by homeViewModel.currentLanguage.collectAsState()
+    val buttonText = if (currentLanguage == HomeViewModel.Language.ES) "EN" else "ES"
 
     // --- INMERSIVO (Híbrido Moderno/Legacy) ---
     val view = LocalView.current
@@ -319,6 +322,25 @@ fun HomeScreen(
                         modifier = Modifier.size(28.dp)
                     )
                 }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd) // O TopStart, ajusta según el diseño
+                        .padding(top = 24.dp, end = 80.dp) // Ajustar padding para que no choque con Power
+                        .clickable {
+                            // Llama a la función del ViewModel que dispara la recarga de datos
+                            homeViewModel.toggleLanguage()
+                            vibrator.vibrateClick()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = buttonText,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 20.sp,
+                        fontFamily = verdanaFontFamily,
+                        fontWeight = FontWeight.Bold // Para destacar
+                    )
+                }
 
                 // Contenedor del Dial
                 Box(
@@ -362,7 +384,8 @@ fun HomeScreen(
                                 scope.launch {
                                     val clickedItemName = menuItems[index].name.trim()
                                     vibrator.vibrateClick()
-                                    val carruselItems = listOf("GUZZ", "Spotify", "YouTube", "Concepto", "Bandcamp", "Soundcloud")
+                                    // AJUSTE 1: Cambiamos "Concepto" por "Entradas"
+                                    val carruselItems = listOf("GUZZ", "Spotify", "YouTube", "Entradas", "Bandcamp", "Soundcloud")
                                     if (clickedItemName in carruselItems) {
                                         frozenTime = time
                                         homeViewModel.updateIsAnimatingOut(true)
@@ -423,7 +446,8 @@ fun HomeScreen(
                             item.copy(imageUrl = "https://img.youtube.com/vi/${item.imageUrl}/0.jpg")
                         }
                     }
-                    "Concepto" -> conceptDataAsCarousel = appData.Concepto
+                    // AJUSTE 2: Usamos "Entradas" para acceder a la lista "Concepto"
+                    "Entradas" -> conceptDataAsCarousel = appData.Concepto
                 }
             }
 
@@ -437,7 +461,8 @@ fun HomeScreen(
                 label = "carouselLayerAlpha"
             )
             val brandColor = if (clickedIconIndex != -1) menuItems[clickedIconIndex].brandColor else Color.Transparent
-            val isConceptMode = (clickedItemName == "Concepto")
+            // AJUSTE 3: Usamos "Entradas" para determinar si estamos en modo concepto/entradas
+            val isConceptMode = (clickedItemName == "Entradas")
 
             val carouselBoxModifier = if (isPortrait) {
                 if (isConceptMode) Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.8f)
